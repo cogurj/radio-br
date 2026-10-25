@@ -5,7 +5,8 @@ Web app (PWA) para ouvir rádios brasileiras no iPhone — feito para usar no ca
 **Link do app:** https://cogurj.github.io/radio-br/
 
 ## O que tem
-- 15 rádios populares de SP/RJ já prontas (Jovem Pan, CBN, BandNews, Antena 1, Transamérica, Mix, Kiss, Alpha, Nativa, 89 FM, Globo, Band FM).
+- **Rio de Janeiro** primeiro: CBN Rio, BandNews Rio, Globo, Tupi, Nacional, Roquette Pinto, JB FM, Melodia, Mix Rio, Nova Brasil, Cidade, 93 FM, Band FM Rio, Transamérica Rio.
+- **São Paulo** embaixo: Jovem Pan, CBN, BandNews, Antena 1, Transamérica, Mix, Kiss, Alpha, Nativa, 89 FM, Band FM.
 - Busca de qualquer rádio do Brasil (pela Radio Browser) e estrela para salvar em **Minhas rádios**.
 - Toca com a tela bloqueada; nome da rádio na tela de bloqueio.
 - Botões ⏮ ⏭ do volante/Bluetooth trocam de rádio.

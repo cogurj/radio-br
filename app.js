@@ -101,7 +101,19 @@ function render() {
   mineGrid.replaceChildren(...mine.map((s) => tile(s, true)));
   $('mineSection').hidden = mine.length === 0;
   if (mine.length === 0) setEditing(false);
-  $('presetGrid').replaceChildren(...PRESETS.map((s) => tile(s, false)));
+  $('regions').replaceChildren(...REGIONS.map((r) => {
+    const section = document.createElement('section');
+    const head = document.createElement('div');
+    head.className = 'section-head';
+    const h2 = document.createElement('h2');
+    h2.textContent = r.title;
+    head.appendChild(h2);
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    grid.replaceChildren(...PRESETS.filter((s) => s.region === r.id).map((s) => tile(s, false)));
+    section.append(head, grid);
+    return section;
+  }));
   markCurrent();
 }
 
