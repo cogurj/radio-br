@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2d33"/><stop offset="1" stop-color="#0f1013"/></linearGradient>
+    <linearGradient id="o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a5c"/><stop offset="1" stop-color="#ff5a24"/></linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#g)"/>
+  <g fill="#3a3d45">
+    <rect x="196" y="452" width="40" height="120" rx="20"/><rect x="276" y="392" width="40" height="240" rx="20"/>
+    <rect x="356" y="332" width="40" height="360" rx="20"/><rect x="628" y="332" width="40" height="360" rx="20"/>
+    <rect x="708" y="392" width="40" height="240" rx="20"/><rect x="788" y="452" width="40" height="120" rx="20"/>
+  </g>
+  <rect x="452" y="232" width="120" height="560" rx="60" fill="#ff6b35" filter="url(#glow)" opacity=".55"/>
+  <rect x="452" y="232" width="120" height="560" rx="60" fill="url(#o)"/>
+</svg>

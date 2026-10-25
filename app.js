@@ -10,10 +10,12 @@ const STALL_TIMEOUT = 12000;               // sem áudio por esse tempo = recone
 const LIVE_RESYNC_AFTER = 20000;           // pausa maior que isso: recarrega pra voltar ao "ao vivo"
 const MAX_RECENT = 5;
 
+document.documentElement.classList.add('js');
 const $ = (id) => document.getElementById(id);
 const audio = $('audio');
 const player = $('player');
 const car = $('carMode');
+const np = $('nowPlaying');
 
 // ---------- Armazenamento local (pode falhar em aba privada) ----------
 const store = {
@@ -91,18 +93,26 @@ function colorFor(text) {
   return `hsl(${h} 55% 38%)`;
 }
 
-function fillLogo(el, st) {
-  el.textContent = '';
-  el.style.background = st.color || colorFor(st.name);
-  el.textContent = st.short || initials(st.name);
+const stationColor = (st) => st.color || colorFor(st.name);
+
+// Arte da rádio: a sigla na cor da rádio aparece na hora; o logo, quando carrega, cobre por cima.
+function fillLogo(box, st) {
+  box.style.setProperty('--art', stationColor(st));
+  const label = st.short || initials(st.name);
+  const mono = el('span', label.length > 4 ? 'mono long' : 'mono', label);
+  box.replaceChildren(mono);
   if (st.logo) {
     const img = new Image();
     img.alt = '';
+    img.decoding = 'async';
     img.referrerPolicy = 'no-referrer';
-    img.onload = () => { el.textContent = ''; el.appendChild(img); };
+    img.onload = () => { if (!mono.isConnected) return; mono.remove(); box.prepend(img); };
     img.src = st.logo;
   }
 }
+
+const icon = (name, kind = 'fill') =>
+  `<svg class="${kind}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -117,7 +127,7 @@ function logoEl(st, cls) {
   return l;
 }
 
-const STAR = '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
+const STAR = icon('star');
 
 function pick(st) {
   if (current && current.id === st.id) togglePlay();
@@ -127,14 +137,18 @@ function pick(st) {
 function tile(st) {
   const b = el('button', 'tile');
   b.dataset.id = st.id;
+  b.setAttribute('aria-label', [st.name, st.sub, st.kind].filter(Boolean).join(', '));
+  const art = logoEl(st);
   const eq = el('span', 'eq');
   eq.innerHTML = '<i></i><i></i><i></i>';
-  b.append(logoEl(st), el('div', 't-name', st.name), el('div', 't-sub', st.sub || ''), eq);
+  art.appendChild(eq);
   if (isFav(st)) {
     const star = el('span', 'fav-badge');
     star.innerHTML = STAR;
-    b.appendChild(star);
+    art.appendChild(star);
   }
+  b.append(art, el('div', 't-name', st.name), el('div', 't-sub', st.sub || ''));
+  if (st.kind) b.appendChild(el('div', 't-kind', st.kind));
   b.addEventListener('click', () => pick(st));
   return b;
 }
@@ -152,13 +166,13 @@ function editRow(st, index, total) {
   const text = el('div', 'r-text');
   text.append(el('div', 'r-name', st.name), el('div', 'r-sub', st.sub || ''));
   li.append(
-    logoEl(st, 'logo small'),
+    btn('Remover ' + st.name, icon('minus', 'line'), () => toggleFav(st), false),
+    logoEl(st),
     text,
-    btn('Subir ' + st.name, '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>', () => moveFav(st.id, -1), index === 0),
-    btn('Descer ' + st.name, '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>', () => moveFav(st.id, 1), index === total - 1),
-    btn('Remover ' + st.name, '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>', () => toggleFav(st), false),
+    btn('Subir ' + st.name, icon('up', 'line'), () => moveFav(st.id, -1), index === 0),
+    btn('Descer ' + st.name, icon('dn', 'line'), () => moveFav(st.id, 1), index === total - 1),
   );
-  li.lastChild.classList.add('danger');
+  li.firstChild.classList.add('danger');
   return li;
 }
 
@@ -168,7 +182,7 @@ function renderRecent() {
   $('recentStrip').replaceChildren(...list.map((st) => {
     const c = el('button', 'chip');
     c.dataset.id = st.id;
-    c.append(logoEl(st, 'logo tiny'), el('span', null, st.name));
+    c.append(logoEl(st), el('span', null, st.name));
     c.addEventListener('click', () => pick(st));
     return c;
   }));
@@ -210,23 +224,34 @@ function markCurrent() {
 }
 
 function updateFavBtn() {
-  const b = $('favBtn');
   const on = isFav(current);
-  b.disabled = !current;
-  b.classList.toggle('on', on);
-  b.setAttribute('aria-label', on ? 'Tirar das favoritas' : 'Adicionar às favoritas');
+  for (const b of [$('favBtn'), $('npFav')]) {
+    b.disabled = !current;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-label', on ? 'Tirar das favoritas' : 'Adicionar às favoritas');
+  }
+}
+
+function favCurrent(btn) {
+  toggleFav(current);
+  btn.classList.remove('pop');
+  void btn.offsetWidth; // reinicia a animação
+  btn.classList.toggle('pop', isFav(current));
 }
 
 // ---------- Player ----------
 function setState(state, text) {
   player.dataset.state = state;
   car.dataset.state = state;
+  np.dataset.state = state;
   document.body.classList.toggle('is-playing', state === 'playing');
+  $('npLiveText').textContent = state === 'playing' ? 'Ao vivo' : (text || 'Pausado');
   $('npStatus').textContent = text || ' ';
   $('carStatus').textContent = text || ' ';
   const label = state === 'playing' ? 'Pausar' : 'Tocar';
   $('playBtn').setAttribute('aria-label', label);
   $('carPlay').setAttribute('aria-label', label);
+  $('npPlay').setAttribute('aria-label', label);
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = state === 'playing' ? 'playing' : (wantPlaying ? 'playing' : 'paused');
   }
@@ -244,7 +269,11 @@ function select(st, autoplay) {
   store.set('last', st);
   $('npName').textContent = st.name;
   $('carName').textContent = st.name;
+  $('npTitle').textContent = st.name;
+  $('npSub').textContent = [st.sub, st.kind].filter(Boolean).join(', ');
+  document.documentElement.style.setProperty('--station', stationColor(st));
   fillLogo($('npLogo'), st);
+  fillLogo($('npArt'), st);
   markCurrent();
   updateFavBtn();
   updateMediaSession();
@@ -386,6 +415,8 @@ function updateSleep() {
   $('sleepLeft').textContent = left;
   $('sleepBtn').classList.toggle('active', !!left);
   $('carSleep').textContent = left ? `Desliga em ${left} min` : '';
+  $('npSleep').classList.toggle('active', !!left);
+  $('npSleepText').textContent = left ? `${left} min` : 'Timer';
 }
 
 setInterval(checkSleep, 15000);
@@ -465,7 +496,7 @@ async function fetchFallback(st) {
 
 function fromApi(r) {
   const url = r.url_resolved || r.url || '';
-  const place = [r.state, r.codec && r.bitrate ? `${r.codec} ${r.bitrate}k` : r.codec].filter(Boolean).join(' · ');
+  const place = (r.state || '').trim() || 'Brasil';
   return {
     id: r.stationuuid,
     uuid: r.stationuuid,
@@ -542,7 +573,67 @@ function resultRow(st) {
 $('playBtn').addEventListener('click', togglePlay);
 $('nextBtn').addEventListener('click', () => step(1));
 $('prevBtn').addEventListener('click', () => step(-1));
-$('favBtn').addEventListener('click', () => toggleFav(current));
+$('favBtn').addEventListener('click', () => favCurrent($('favBtn')));
+$('npFav').addEventListener('click', () => favCurrent($('npFav')));
+
+// ---------- Tocando agora: abre de baixo, fecha arrastando ----------
+let lastFocus = null;
+function openNowPlaying() {
+  if (!current) return;
+  lastFocus = document.activeElement;
+  np.hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => np.classList.add('open')));
+  $('npSheet').focus({ preventScroll: true });
+}
+function closeNowPlaying() {
+  if (np.hidden) return;
+  np.classList.remove('open');
+  $('npSheet').style.transform = '';
+  const done = () => { if (!np.classList.contains('open')) np.hidden = true; };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) done(); else setTimeout(done, 450);
+  if (lastFocus) lastFocus.focus({ preventScroll: true });
+}
+$('npOpen').addEventListener('click', openNowPlaying);
+$('npClose').addEventListener('click', closeNowPlaying);
+$('npPlay').addEventListener('click', togglePlay);
+$('npNext').addEventListener('click', () => step(1));
+$('npPrev').addEventListener('click', () => step(-1));
+$('npSleep').addEventListener('click', () => { $('sleepMenu').hidden = false; });
+$('npCar').addEventListener('click', () => { closeNowPlaying(); setCarMode(true); });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!$('sleepMenu').hidden) $('sleepMenu').hidden = true;
+  else closeNowPlaying();
+});
+(() => {
+  const sheet = $('npSheet');
+  let y0 = null, dy = 0, t0 = 0;
+  sheet.addEventListener('pointerdown', (e) => {
+    if (sheet.scrollTop > 0 || e.target.closest('button')) return;
+    y0 = e.clientY; dy = 0; t0 = performance.now();
+    np.classList.add('dragging');
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (y0 == null) return;
+    dy = Math.max(0, e.clientY - y0);
+    sheet.style.transform = `translateY(${dy}px)`;
+  });
+  const end = () => {
+    if (y0 == null) return;
+    np.classList.remove('dragging');
+    const fast = dy / (performance.now() - t0) > 0.6;
+    if (dy > 140 || (fast && dy > 40)) closeNowPlaying();
+    else sheet.style.transform = '';
+    y0 = null;
+  };
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+})();
+
+// ---------- Título grande que vira barra ao rolar ----------
+new IntersectionObserver(([e]) => $('top').classList.toggle('scrolled', !e.isIntersecting), { rootMargin: '-60px 0px 0px 0px' })
+  .observe($('bigTitle'));
 $('editBtn').addEventListener('click', () => { editing = !editing; render(); });
 
 $('carBtn').addEventListener('click', () => setCarMode(true));

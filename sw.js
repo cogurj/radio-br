@@ -1,16 +1,17 @@
 ﻿// Guarda só os arquivos do app, para abrir rápido mesmo com sinal fraco.
 // Streams e a API de rádios sempre vão direto para a rede.
-const CACHE = 'radio-br-v5';
+const CACHE = 'radio-br-v6';
 const FILES = [
   './',
   'index.html',
-  'styles.css?v=5',
-  'stations.js?v=5',
-  'app.js?v=5',
+  'styles.css?v=6',
+  'stations.js?v=6',
+  'app.js?v=6',
   'manifest.webmanifest',
   'icons/icon-180.png',
   'icons/icon-192.png',
   'icons/icon-512.png',
+  'icons/favicon-32.png',
 ];
 
 self.addEventListener('install', (e) => {
