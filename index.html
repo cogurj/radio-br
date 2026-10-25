@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Rádio BR</title>
+  <meta name="description" content="Rádios do Brasil para ouvir no carro">
+  <meta name="theme-color" content="#0e0f12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rádio BR">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Rádio BR</h1>
+    <button id="searchBtn" class="icon-btn" aria-label="Buscar rádio">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
+    </button>
+  </header>
+
+  <main id="main">
+    <section id="mineSection" hidden>
+      <div class="section-head">
+        <h2>Minhas rádios</h2>
+        <button id="editBtn" class="text-btn">Editar</button>
+      </div>
+      <div id="mineGrid" class="grid"></div>
+    </section>
+    <section>
+      <div class="section-head"><h2>Populares</h2></div>
+      <div id="presetGrid" class="grid"></div>
+    </section>
+    <p class="hint">Toque em <b>Buscar</b> para adicionar qualquer rádio do Brasil.</p>
+  </main>
+
+  <div id="search" class="sheet" hidden>
+    <div class="sheet-head">
+      <input id="searchInput" type="search" placeholder="Nome da rádio ou cidade" autocomplete="off" enterkeyhint="search">
+      <button id="closeSearch" class="text-btn">Fechar</button>
+    </div>
+    <p id="searchStatus" class="search-status"></p>
+    <ul id="results" class="results"></ul>
+  </div>
+
+  <footer id="player" class="player" data-state="idle">
+    <div id="npLogo" class="logo small"></div>
+    <div class="np-text">
+      <div id="npName" class="np-name">Escolha uma rádio</div>
+      <div id="npStatus" class="np-status">&nbsp;</div>
+    </div>
+    <button id="prevBtn" class="ctl" aria-label="Rádio anterior">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5L9 12l10 7z"/></svg>
+    </button>
+    <button id="playBtn" class="ctl play" aria-label="Tocar">
+      <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>
+      <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h4v16H7zM14 4h4v16h-4z"/></svg>
+      <span class="spinner" aria-hidden="true"></span>
+    </button>
+    <button id="nextBtn" class="ctl" aria-label="Próxima rádio">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M5 5l10 7-10 7z"/></svg>
+    </button>
+  </footer>
+
+  <audio id="audio" preload="none" playsinline></audio>
+
+  <script src="stations.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
