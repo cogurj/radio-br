@@ -7,7 +7,11 @@ Web app (PWA) para ouvir rádios brasileiras no iPhone — feito para usar no ca
 ## O que tem
 - **Rio de Janeiro** primeiro: CBN Rio, BandNews Rio, Globo, Tupi, Nacional, Roquette Pinto, JB FM, Melodia, Mix Rio, Nova Brasil, Cidade, 93 FM, Band FM Rio, Transamérica Rio.
 - **São Paulo** embaixo: Jovem Pan, CBN, BandNews, Antena 1, Transamérica, Mix, Kiss, Alpha, Nativa, 89 FM, Band FM.
-- Busca de qualquer rádio do Brasil (pela Radio Browser) e estrela para salvar em **Minhas rádios**.
+- **Favoritas**: a ⭐ no player fixa a rádio que está tocando no topo. Em **Editar**, ↑ ↓ mudam a ordem e ✕ remove. Tocando uma favorita, ⏮ ⏭ andam só entre as favoritas.
+- **Tocadas recentemente**: as últimas 5 rádios ouvidas.
+- **Timer** (🌙): desliga sozinho em 15, 30, 60 ou 90 minutos.
+- **Modo carro** (🚗): tela simplificada com botões gigantes e as favoritas.
+- Busca de qualquer rádio do Brasil (pela Radio Browser), com ⭐ para salvar nas favoritas.
 - Toca com a tela bloqueada; nome da rádio na tela de bloqueio.
 - Botões ⏮ ⏭ do volante/Bluetooth trocam de rádio.
 - Se o sinal cair (túnel, área sem 4G), reconecta sozinho.

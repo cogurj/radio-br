@@ -8,10 +8,12 @@ const API_HOSTS = [
 const RETRY_DELAYS = [1, 2, 4, 8, 15, 30]; // segundos entre tentativas de reconexão
 const STALL_TIMEOUT = 12000;               // sem áudio por esse tempo = reconectar
 const LIVE_RESYNC_AFTER = 20000;           // pausa maior que isso: recarrega pra voltar ao "ao vivo"
+const MAX_RECENT = 5;
 
 const $ = (id) => document.getElementById(id);
 const audio = $('audio');
 const player = $('player');
+const car = $('carMode');
 
 // ---------- Armazenamento local (pode falhar em aba privada) ----------
 const store = {
@@ -24,7 +26,10 @@ const store = {
   },
 };
 
-let mine = store.get('mine', []);   // rádios adicionadas pela busca
+// Favoritas e recentes: rádio fixa guarda só o id (o link vem sempre do stations.js);
+// rádio vinda da busca guarda o objeto inteiro.
+let favs = store.get('mine', []);
+let recent = store.get('recent', []);
 let current = null;                 // rádio selecionada
 let wantPlaying = false;            // o usuário quer ouvir (mesmo que o stream caia)
 let retries = 0;
@@ -32,10 +37,47 @@ let retryTimer = null;
 let stallTimer = null;
 let pausedAt = 0;
 let usingFallback = false;
+let editing = false;
+let sleepAt = 0;                    // horário (ms) em que o timer desliga; 0 = sem timer
 
 // ---------- Lista ----------
+const presetById = (id) => PRESETS.find((s) => s.id === id);
+const ref = (st) => (presetById(st.id) ? { id: st.id } : st);
+const resolve = (r) => presetById(r.id) || (r.url ? r : null);
+
+function favStations() { return favs.map(resolve).filter(Boolean); }
+function recentStations() { return recent.map(resolve).filter(Boolean); }
+function isFav(st) { return !!st && favs.some((f) => f.id === st.id); }
+
 function allStations() {
-  return [...mine, ...PRESETS];
+  const seen = new Set();
+  return [...favStations(), ...PRESETS].filter((s) => !seen.has(s.id) && seen.add(s.id));
+}
+
+function toggleFav(st) {
+  if (!st) return;
+  const i = favs.findIndex((f) => f.id === st.id);
+  if (i >= 0) favs.splice(i, 1);
+  else favs.push(ref(st));
+  store.set('mine', favs);
+  render();
+}
+
+function moveFav(id, dir) {
+  const i = favs.findIndex((f) => f.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= favs.length) return;
+  [favs[i], favs[j]] = [favs[j], favs[i]];
+  store.set('mine', favs);
+  render();
+}
+
+function addRecent(st) {
+  recent = [ref(st), ...recent.filter((r) => r.id !== st.id)].slice(0, MAX_RECENT);
+  store.set('recent', recent);
+  renderRecent();
+  renderCar();
+  markCurrent();
 }
 
 function initials(name) {
@@ -62,88 +104,129 @@ function fillLogo(el, st) {
   }
 }
 
-function tile(st, removable) {
-  const b = document.createElement('button');
-  b.className = 'tile';
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function logoEl(st, cls) {
+  const l = el('div', cls || 'logo');
+  fillLogo(l, st);
+  return l;
+}
+
+const STAR = '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
+
+function pick(st) {
+  if (current && current.id === st.id) togglePlay();
+  else select(st, true);
+}
+
+function tile(st) {
+  const b = el('button', 'tile');
   b.dataset.id = st.id;
-  const logo = document.createElement('div');
-  logo.className = 'logo';
-  fillLogo(logo, st);
-  const name = document.createElement('div');
-  name.className = 't-name';
-  name.textContent = st.name;
-  const sub = document.createElement('div');
-  sub.className = 't-sub';
-  sub.textContent = st.sub || '';
-  const eq = document.createElement('span');
-  eq.className = 'eq';
+  const eq = el('span', 'eq');
   eq.innerHTML = '<i></i><i></i><i></i>';
-  b.append(logo, name, sub, eq);
-  if (removable) {
-    const x = document.createElement('span');
-    x.className = 'remove';
-    x.setAttribute('role', 'button');
-    x.setAttribute('aria-label', 'Remover ' + st.name);
-    x.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-    x.addEventListener('click', (e) => { e.stopPropagation(); toggleMine(st); });
-    b.appendChild(x);
+  b.append(logoEl(st), el('div', 't-name', st.name), el('div', 't-sub', st.sub || ''), eq);
+  if (isFav(st)) {
+    const star = el('span', 'fav-badge');
+    star.innerHTML = STAR;
+    b.appendChild(star);
   }
-  b.addEventListener('click', () => {
-    if ($('mineSection').classList.contains('editing')) return;
-    if (current && current.id === st.id) togglePlay();
-    else select(st, true);
-  });
+  b.addEventListener('click', () => pick(st));
   return b;
 }
 
+function editRow(st, index, total) {
+  const li = el('li');
+  const btn = (label, svg, fn, disabled) => {
+    const b = el('button', 'row-btn');
+    b.setAttribute('aria-label', label);
+    b.innerHTML = svg;
+    b.disabled = disabled;
+    b.addEventListener('click', fn);
+    return b;
+  };
+  const text = el('div', 'r-text');
+  text.append(el('div', 'r-name', st.name), el('div', 'r-sub', st.sub || ''));
+  li.append(
+    logoEl(st, 'logo small'),
+    text,
+    btn('Subir ' + st.name, '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>', () => moveFav(st.id, -1), index === 0),
+    btn('Descer ' + st.name, '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>', () => moveFav(st.id, 1), index === total - 1),
+    btn('Remover ' + st.name, '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>', () => toggleFav(st), false),
+  );
+  li.lastChild.classList.add('danger');
+  return li;
+}
+
+function renderRecent() {
+  const list = recentStations();
+  $('recentSection').hidden = list.length === 0;
+  $('recentStrip').replaceChildren(...list.map((st) => {
+    const c = el('button', 'chip');
+    c.dataset.id = st.id;
+    c.append(logoEl(st, 'logo tiny'), el('span', null, st.name));
+    c.addEventListener('click', () => pick(st));
+    return c;
+  }));
+}
+
 function render() {
-  const mineGrid = $('mineGrid');
-  mineGrid.replaceChildren(...mine.map((s) => tile(s, true)));
-  $('mineSection').hidden = mine.length === 0;
-  if (mine.length === 0) setEditing(false);
+  const fl = favStations();
+  if (fl.length === 0) editing = false;
+  $('mineSection').hidden = fl.length === 0;
+  $('mineSection').classList.toggle('editing', editing);
+  $('editBtn').textContent = editing ? 'Concluir' : 'Editar';
+  $('mineGrid').hidden = editing;
+  $('mineList').hidden = !editing;
+  $('mineGrid').replaceChildren(...fl.map((s) => tile(s)));
+  $('mineList').replaceChildren(...fl.map((s, i) => editRow(s, i, fl.length)));
+
   // Se um stations.js antigo vier do cache (sem REGIONS), mostra tudo numa seção só.
   const regions = typeof REGIONS !== 'undefined' ? REGIONS : [{ id: undefined, title: 'Rádios' }];
   $('regions').replaceChildren(...regions.map((r) => {
-    const section = document.createElement('section');
-    const head = document.createElement('div');
-    head.className = 'section-head';
-    const h2 = document.createElement('h2');
-    h2.textContent = r.title;
-    head.appendChild(h2);
-    const grid = document.createElement('div');
-    grid.className = 'grid';
-    grid.replaceChildren(...PRESETS.filter((s) => s.region === r.id).map((s) => tile(s, false)));
+    const section = el('section');
+    const head = el('div', 'section-head');
+    head.appendChild(el('h2', null, r.title));
+    const grid = el('div', 'grid');
+    grid.replaceChildren(...PRESETS.filter((s) => s.region === r.id).map((s) => tile(s)));
     section.append(head, grid);
     return section;
   }));
+
+  renderRecent();
+  renderCar();
+  updateFavBtn();
   markCurrent();
 }
 
 function markCurrent() {
-  document.querySelectorAll('.tile').forEach((t) => {
+  document.querySelectorAll('.tile, .chip, .car-tile').forEach((t) => {
     t.classList.toggle('current', !!current && t.dataset.id === current.id);
   });
 }
 
-function setEditing(on) {
-  $('mineSection').classList.toggle('editing', on);
-  $('editBtn').textContent = on ? 'Concluir' : 'Editar';
-}
-
-function toggleMine(st) {
-  const i = mine.findIndex((s) => s.id === st.id);
-  if (i >= 0) mine.splice(i, 1);
-  else mine.unshift(st);
-  store.set('mine', mine);
-  render();
+function updateFavBtn() {
+  const b = $('favBtn');
+  const on = isFav(current);
+  b.disabled = !current;
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-label', on ? 'Tirar das favoritas' : 'Adicionar às favoritas');
 }
 
 // ---------- Player ----------
 function setState(state, text) {
   player.dataset.state = state;
+  car.dataset.state = state;
   document.body.classList.toggle('is-playing', state === 'playing');
   $('npStatus').textContent = text || ' ';
-  $('playBtn').setAttribute('aria-label', state === 'playing' ? 'Pausar' : 'Tocar');
+  $('carStatus').textContent = text || ' ';
+  const label = state === 'playing' ? 'Pausar' : 'Tocar';
+  $('playBtn').setAttribute('aria-label', label);
+  $('carPlay').setAttribute('aria-label', label);
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = state === 'playing' ? 'playing' : (wantPlaying ? 'playing' : 'paused');
   }
@@ -160,8 +243,10 @@ function select(st, autoplay) {
   retries = 0;
   store.set('last', st);
   $('npName').textContent = st.name;
+  $('carName').textContent = st.name;
   fillLogo($('npLogo'), st);
   markCurrent();
+  updateFavBtn();
   updateMediaSession();
   if (autoplay) start();
   else setState('idle', st.sub || 'Toque para tocar');
@@ -193,12 +278,12 @@ function start() {
   }
 }
 
-function stop() {
+function stop(text) {
   wantPlaying = false;
   clearTimers();
   pausedAt = Date.now();
   audio.pause();
-  setState('paused', 'Pausado');
+  setState('paused', text || 'Pausado');
 }
 
 function resume() {
@@ -224,7 +309,9 @@ function togglePlay() {
 }
 
 function step(dir) {
-  const list = allStations();
+  // Tocando uma favorita: ⏮ ⏭ andam só entre as favoritas.
+  const fl = favStations();
+  const list = isFav(current) && fl.length >= 2 ? fl : allStations();
   if (!list.length) return;
   let i = current ? list.findIndex((s) => s.id === current.id) : -1;
   i = (i + dir + list.length) % list.length;
@@ -254,6 +341,7 @@ audio.addEventListener('playing', () => {
   clearTimers();
   retries = 0;
   setState('playing', 'Ao vivo');
+  if (current) addRecent(current);
 });
 audio.addEventListener('waiting', () => {
   if (!wantPlaying) return;
@@ -264,6 +352,7 @@ audio.addEventListener('waiting', () => {
 audio.addEventListener('stalled', () => { if (wantPlaying) armStallTimer(); });
 audio.addEventListener('error', () => { if (wantPlaying) scheduleRetry(); });
 audio.addEventListener('ended', () => { if (wantPlaying) scheduleRetry(); });
+audio.addEventListener('timeupdate', checkSleep);
 audio.addEventListener('pause', () => {
   // Pausa vinda do sistema (ligação, Siri, outro app) que não passou pelos nossos botões.
   if (wantPlaying && !retryTimer && audio.error == null && player.dataset.state === 'playing') {
@@ -276,6 +365,50 @@ audio.addEventListener('pause', () => {
 window.addEventListener('online', () => {
   if (wantPlaying && player.dataset.state !== 'playing') { clearTimers(); start(); }
 });
+
+// ---------- Timer para desligar ----------
+function setSleep(minutes) {
+  sleepAt = minutes ? Date.now() + minutes * 60000 : 0;
+  updateSleep();
+}
+
+function checkSleep() {
+  if (sleepAt && Date.now() >= sleepAt) {
+    sleepAt = 0;
+    if (wantPlaying) stop('Timer: desligado');
+  }
+  updateSleep();
+}
+
+function updateSleep() {
+  const left = sleepAt ? Math.max(1, Math.ceil((sleepAt - Date.now()) / 60000)) : 0;
+  $('sleepLeft').hidden = !left;
+  $('sleepLeft').textContent = left;
+  $('sleepBtn').classList.toggle('active', !!left);
+  $('carSleep').textContent = left ? `Desliga em ${left} min` : '';
+}
+
+setInterval(checkSleep, 15000);
+
+// ---------- Modo carro ----------
+function renderCar() {
+  const fl = favStations();
+  const list = fl.length ? fl : recentStations();
+  $('carHint').hidden = fl.length > 0;
+  $('carGrid').replaceChildren(...list.map((st) => {
+    const b = el('button', 'car-tile');
+    b.dataset.id = st.id;
+    b.append(logoEl(st), el('span', 'car-tile-name', st.name));
+    b.addEventListener('click', () => pick(st));
+    return b;
+  }));
+}
+
+function setCarMode(on) {
+  car.hidden = !on;
+  document.body.classList.toggle('car-on', on);
+  store.set('carMode', on);
+}
 
 // ---------- Tela de bloqueio / botões do carro ----------
 function updateMediaSession() {
@@ -296,8 +429,8 @@ if ('mediaSession' in navigator) {
   const ms = navigator.mediaSession;
   const set = (action, fn) => { try { ms.setActionHandler(action, fn); } catch { /* não suportado */ } };
   set('play', resume);
-  set('pause', stop);
-  set('stop', stop);
+  set('pause', () => stop());
+  set('stop', () => stop());
   set('nexttrack', () => step(1));
   set('previoustrack', () => step(-1));
   set('seekforward', null);
@@ -385,30 +518,22 @@ async function search(q) {
 }
 
 function resultRow(st) {
-  const li = document.createElement('li');
-  const main = document.createElement('button');
-  main.className = 'r-main';
-  const logo = document.createElement('div');
-  logo.className = 'logo small';
-  fillLogo(logo, st);
-  const text = document.createElement('div');
-  text.className = 'r-text';
-  text.innerHTML = '<div class="r-name"></div><div class="r-sub"></div>';
-  text.firstChild.textContent = st.name;
-  text.lastChild.textContent = st.sub;
-  main.append(logo, text);
+  const li = el('li');
+  const main = el('button', 'r-main');
+  const text = el('div', 'r-text');
+  text.append(el('div', 'r-name', st.name), el('div', 'r-sub', st.sub));
+  main.append(logoEl(st, 'logo small'), text);
   main.addEventListener('click', () => select(st, true));
 
-  const fav = document.createElement('button');
-  fav.className = 'fav';
-  fav.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
+  const fav = el('button', 'fav');
+  fav.innerHTML = STAR;
   const sync = () => {
-    const on = mine.some((s) => s.id === st.id);
+    const on = isFav(st);
     fav.classList.toggle('on', on);
-    fav.setAttribute('aria-label', on ? 'Remover das minhas rádios' : 'Adicionar às minhas rádios');
+    fav.setAttribute('aria-label', on ? 'Tirar das favoritas' : 'Adicionar às favoritas');
   };
   sync();
-  fav.addEventListener('click', () => { toggleMine(st); sync(); });
+  fav.addEventListener('click', () => { toggleFav(st); sync(); });
   li.append(main, fav);
   return li;
 }
@@ -417,7 +542,23 @@ function resultRow(st) {
 $('playBtn').addEventListener('click', togglePlay);
 $('nextBtn').addEventListener('click', () => step(1));
 $('prevBtn').addEventListener('click', () => step(-1));
-$('editBtn').addEventListener('click', () => setEditing(!$('mineSection').classList.contains('editing')));
+$('favBtn').addEventListener('click', () => toggleFav(current));
+$('editBtn').addEventListener('click', () => { editing = !editing; render(); });
+
+$('carBtn').addEventListener('click', () => setCarMode(true));
+$('carExit').addEventListener('click', () => setCarMode(false));
+$('carPlay').addEventListener('click', togglePlay);
+$('carNext').addEventListener('click', () => step(1));
+$('carPrev').addEventListener('click', () => step(-1));
+
+$('sleepBtn').addEventListener('click', () => { $('sleepMenu').hidden = false; });
+$('sleepClose').addEventListener('click', () => { $('sleepMenu').hidden = true; });
+$('sleepCancel').addEventListener('click', () => { setSleep(0); $('sleepMenu').hidden = true; });
+$('sleepMenu').addEventListener('click', (e) => {
+  const min = e.target.closest('[data-min]');
+  if (min) { setSleep(Number(min.dataset.min)); $('sleepMenu').hidden = true; }
+  else if (e.target === $('sleepMenu')) $('sleepMenu').hidden = true;
+});
 
 let searchDebounce;
 $('searchBtn').addEventListener('click', () => {
@@ -441,6 +582,7 @@ render();
 const last = store.get('last', null);
 const lastStation = last && (allStations().find((s) => s.id === last.id) || last);
 if (lastStation && lastStation.url) select(lastStation, false);
+if (store.get('carMode', false)) setCarMode(true);
 
 if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {

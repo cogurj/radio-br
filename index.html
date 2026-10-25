@@ -13,26 +13,40 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
   <header class="top">
     <h1>Rádio BR</h1>
-    <button id="searchBtn" class="icon-btn" aria-label="Buscar rádio">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
-    </button>
+    <div class="top-actions">
+      <button id="sleepBtn" class="icon-btn" aria-label="Timer para desligar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+        <span id="sleepLeft" class="badge" hidden></span>
+      </button>
+      <button id="carBtn" class="icon-btn" aria-label="Modo carro">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16V11l2-5h10l2 5v5M3 16h18v3H3zM5 11h14"/><circle cx="7.5" cy="16" r="1"/><circle cx="16.5" cy="16" r="1"/></svg>
+      </button>
+      <button id="searchBtn" class="icon-btn" aria-label="Buscar rádio">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
+      </button>
+    </div>
   </header>
 
   <main id="main">
+    <section id="recentSection" hidden>
+      <div class="section-head"><h2>Tocadas recentemente</h2></div>
+      <div id="recentStrip" class="strip"></div>
+    </section>
     <section id="mineSection" hidden>
       <div class="section-head">
-        <h2>Minhas rádios</h2>
+        <h2>Favoritas</h2>
         <button id="editBtn" class="text-btn">Editar</button>
       </div>
       <div id="mineGrid" class="grid"></div>
+      <ul id="mineList" class="edit-list" hidden></ul>
     </section>
     <div id="regions"></div>
-    <p class="hint">Toque em <b>Buscar</b> para adicionar qualquer rádio do Brasil.</p>
+    <p class="hint">Toque na <b>⭐</b> do player para fixar a rádio em Favoritas.<br>Na <b>lupa</b> você acha qualquer rádio do Brasil.</p>
   </main>
 
   <div id="search" class="sheet" hidden>
@@ -44,12 +58,55 @@
     <ul id="results" class="results"></ul>
   </div>
 
+  <div id="sleepMenu" class="menu-backdrop" hidden>
+    <div class="menu" role="dialog" aria-label="Timer para desligar">
+      <h3>Desligar em…</h3>
+      <div class="menu-grid">
+        <button data-min="15">15 min</button>
+        <button data-min="30">30 min</button>
+        <button data-min="60">1 hora</button>
+        <button data-min="90">1h30</button>
+      </div>
+      <button id="sleepCancel" class="menu-cancel">Desligar timer</button>
+      <button id="sleepClose" class="text-btn menu-close">Fechar</button>
+    </div>
+  </div>
+
+  <div id="carMode" class="car" data-state="idle" hidden>
+    <div class="car-top">
+      <button id="carExit" class="car-exit">Sair</button>
+      <span id="carSleep" class="car-sleep"></span>
+    </div>
+    <div class="car-now">
+      <div id="carName" class="car-name">Escolha uma rádio</div>
+      <div id="carStatus" class="car-status">&nbsp;</div>
+    </div>
+    <div class="car-ctl">
+      <button id="carPrev" class="ctl big" aria-label="Rádio anterior">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5L9 12l10 7z"/></svg>
+      </button>
+      <button id="carPlay" class="ctl play huge" aria-label="Tocar">
+        <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h4v16H7zM14 4h4v16h-4z"/></svg>
+        <span class="spinner" aria-hidden="true"></span>
+      </button>
+      <button id="carNext" class="ctl big" aria-label="Próxima rádio">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M5 5l10 7-10 7z"/></svg>
+      </button>
+    </div>
+    <p id="carHint" class="car-hint" hidden>Toque na ⭐ do player para fixar rádios aqui.</p>
+    <div id="carGrid" class="car-grid"></div>
+  </div>
+
   <footer id="player" class="player" data-state="idle">
     <div id="npLogo" class="logo small"></div>
     <div class="np-text">
       <div id="npName" class="np-name">Escolha uma rádio</div>
       <div id="npStatus" class="np-status">&nbsp;</div>
     </div>
+    <button id="favBtn" class="ctl fav-btn" aria-label="Favoritar" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+    </button>
     <button id="prevBtn" class="ctl" aria-label="Rádio anterior">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5L9 12l10 7z"/></svg>
     </button>
@@ -66,7 +123,7 @@
   <audio id="audio" preload="none" playsinline></audio>
 
   <!-- Ao mudar qualquer arquivo, suba o ?v= aqui e o CACHE em sw.js. -->
-  <script src="stations.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="stations.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
