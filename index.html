@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <header class="top">
@@ -46,7 +46,7 @@
       <ul id="mineList" class="edit-list" hidden></ul>
     </section>
     <div id="regions"></div>
-    <p class="hint">Toque na <b>⭐</b> do player para fixar a rádio em Favoritas.<br>Na <b>lupa</b> você acha qualquer rádio do Brasil.</p>
+    <p class="hint">Toque na estrela <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg> do player para fixar a rádio em Favoritas.<br>Na <b>lupa</b> você acha qualquer rádio do Brasil.</p>
   </main>
 
   <div id="search" class="sheet" hidden>
@@ -94,7 +94,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M5 5l10 7-10 7z"/></svg>
       </button>
     </div>
-    <p id="carHint" class="car-hint" hidden>Toque na ⭐ do player para fixar rádios aqui.</p>
+    <p id="carHint" class="car-hint" hidden>Toque na estrela <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg> do player para fixar rádios aqui.</p>
     <div id="carGrid" class="car-grid"></div>
   </div>
 
@@ -123,7 +123,7 @@
   <audio id="audio" preload="none" playsinline></audio>
 
   <!-- Ao mudar qualquer arquivo, suba o ?v= aqui e o CACHE em sw.js. -->
-  <script src="stations.js?v=4"></script>
-  <script src="app.js?v=4"></script>
+  <script src="stations.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

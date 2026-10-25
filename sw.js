@@ -1,12 +1,12 @@
-// Guarda só os arquivos do app, para abrir rápido mesmo com sinal fraco.
+﻿// Guarda só os arquivos do app, para abrir rápido mesmo com sinal fraco.
 // Streams e a API de rádios sempre vão direto para a rede.
-const CACHE = 'radio-br-v4';
+const CACHE = 'radio-br-v5';
 const FILES = [
   './',
   'index.html',
-  'styles.css?v=4',
-  'stations.js?v=4',
-  'app.js?v=4',
+  'styles.css?v=5',
+  'stations.js?v=5',
+  'app.js?v=5',
   'manifest.webmanifest',
   'icons/icon-180.png',
   'icons/icon-192.png',
