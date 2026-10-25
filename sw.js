@@ -1,12 +1,12 @@
 // Guarda só os arquivos do app, para abrir rápido mesmo com sinal fraco.
 // Streams e a API de rádios sempre vão direto para a rede.
-const CACHE = 'radio-br-v2';
+const CACHE = 'radio-br-v3';
 const FILES = [
   './',
   'index.html',
-  'styles.css',
-  'stations.js',
-  'app.js',
+  'styles.css?v=3',
+  'stations.js?v=3',
+  'app.js?v=3',
   'manifest.webmanifest',
   'icons/icon-180.png',
   'icons/icon-192.png',
@@ -14,7 +14,11 @@ const FILES = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {
@@ -28,12 +32,16 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  // Rede primeiro (pega atualizações), cache se estiver sem internet.
+  // Rede primeiro, sempre conferindo com o servidor (o GitHub Pages manda
+  // cache de 10 min, o que misturava versão nova e antiga dos arquivos).
+  // Sem internet, usa o que estiver guardado.
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+        }
         return res;
       })
       .catch(() => caches.match(e.request).then((r) => r || caches.match('index.html')))

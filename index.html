@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
   <header class="top">
@@ -65,7 +65,8 @@
 
   <audio id="audio" preload="none" playsinline></audio>
 
-  <script src="stations.js"></script>
-  <script src="app.js"></script>
+  <!-- Ao mudar qualquer arquivo, suba o ?v= aqui e o CACHE em sw.js. -->
+  <script src="stations.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

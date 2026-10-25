@@ -101,7 +101,9 @@ function render() {
   mineGrid.replaceChildren(...mine.map((s) => tile(s, true)));
   $('mineSection').hidden = mine.length === 0;
   if (mine.length === 0) setEditing(false);
-  $('regions').replaceChildren(...REGIONS.map((r) => {
+  // Se um stations.js antigo vier do cache (sem REGIONS), mostra tudo numa seção só.
+  const regions = typeof REGIONS !== 'undefined' ? REGIONS : [{ id: undefined, title: 'Rádios' }];
+  $('regions').replaceChildren(...regions.map((r) => {
     const section = document.createElement('section');
     const head = document.createElement('div');
     head.className = 'section-head';
@@ -441,5 +443,17 @@ const lastStation = last && (allStations().find((s) => s.id === last.id) || last
 if (lastStation && lastStation.url) select(lastStation, false);
 
 if ('serviceWorker' in navigator && window.isSecureContext) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    // O app do iPhone fica aberto em segundo plano; ao voltar, procura versão nova.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
+  }).catch(() => {});
+  // Quando uma versão nova assume, recarrega a tela (só se nada estiver tocando).
+  let reloaded = !navigator.serviceWorker.controller; // primeira visita: não precisa recarregar
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded || wantPlaying) return;
+    reloaded = true;
+    location.reload();
+  });
 }
